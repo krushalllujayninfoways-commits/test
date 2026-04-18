@@ -4,15 +4,15 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const fs = require("fs");
-
 const authRoutes = require("./routes/auth");
 const publicRoutes = require("./routes/public");
 const userRoutes = require("./routes/user");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const frontendDistPath = path.resolve(__dirname, "../frontend/dist");
+const frontendDistPath = path.join(__dirname, "../frontend/dist");
 const hasFrontendBuild = fs.existsSync(frontendDistPath);
+
 const hasExplicitOrigins = Boolean(process.env.FRONTEND_URL && process.env.FRONTEND_URL.trim());
 const allowedOrigins = (process.env.FRONTEND_URL || "")
   .split(",")
@@ -24,11 +24,11 @@ app.use(cors({
     if (!origin || !hasExplicitOrigins || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-
     return callback(new Error("CORS not allowed for this origin"));
   },
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -39,29 +39,29 @@ app.use(rateLimit({
   message: { success: false, message: "Too many requests, please try again later." },
 }));
 
+// Serve static frontend files FIRST (before API routes)
+if (hasFrontendBuild) {
+  app.use(express.static(frontendDistPath));
+}
+
 // API routes
 app.use("/api/auth", authRoutes);
-app.use("/api", publicRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api", publicRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "Server is running", timestamp: new Date().toISOString() });
 });
 
+// API 404 handler
 app.use("/api", (req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
 
+// Let React Router handle all non-API routes
 if (hasFrontendBuild) {
-  app.use(express.static(frontendDistPath));
-
-  // Let React Router handle non-API routes.
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
-
-    return res.sendFile(path.join(frontendDistPath, "index.html"));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
   });
 } else {
   app.get("/", (req, res) => {
