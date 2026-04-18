@@ -217,6 +217,33 @@ cd backend
 npm start
 ```
 
+### Single-Service Render Deployment
+
+This repo now includes a root `render.yaml` that deploys the app as one Render web service:
+
+- Render service root: `project/backend`
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+
+The backend serves the built React app from `project/frontend/dist`, so you only need one web service.
+
+Set these environment variables in Render:
+
+```env
+NODE_ENV=production
+JWT_SECRET=replace_with_a_long_random_string
+JWT_EXPIRES_IN=7d
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+FROM_EMAIL=your_email@gmail.com
+FROM_NAME=MyApp Team
+CONTACT_RECEIVER_EMAIL=your_email@gmail.com
+OTP_EXPIRES_MINUTES=10
+FRONTEND_URL=https://your-render-service.onrender.com
+```
+
 ### Replace In-Memory DB with MongoDB
 
 Install Mongoose:

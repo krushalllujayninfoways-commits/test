@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: myapp-fullstack
+    runtime: node
+    rootDir: project/backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
