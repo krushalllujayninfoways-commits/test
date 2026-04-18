@@ -1,0 +1,11 @@
+{
+  "name": "myapp-fullstack-root",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix project/backend install && npm --prefix project/backend run build",
+    "start": "npm --prefix project/backend start"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
