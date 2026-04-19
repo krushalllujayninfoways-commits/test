@@ -3,69 +3,42 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+app.use(express.json());
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
-app.use(express.json({ limit: '10mb' }));
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-render-jwt-2024';
-const EMAIL_USER = process.env.EMAIL_USER || '';
-const EMAIL_PASS = process.env.EMAIL_PASS || '';
-
+const JWT_SECRET = process.env.JWT_SECRET || 'render-secret-2024';
 const users = {};
 const otpStore = {};
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
-const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 3 });
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 
-let transporter;
-if (EMAIL_USER && EMAIL_PASS) {
-  transporter = nodemailer.createTransporter({
-    service: 'gmail',
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS }
-  });
-}
+app.get('/', (req, res) => {
+  res.json({ message: '🚀 MyApp Backend OK!', status: 'live' });
+});
 
-app.get('/', (req, res) => res.json({ 
-  message: '🚀 MyApp Backend v1.0.0 ✅', 
-  status: 'OK' 
-}));
-
-app.post('/auth/register', registerLimiter, async (req, res) => {
+app.post('/auth/register', limiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!email || !password || !name) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ message: 'Missing fields' });
     }
     if (users[email]) {
       return res.status(400).json({ message: 'User exists' });
     }
 
-    const hashed = await bcrypt.hash(password, 12);
-    users[email] = { name, email, password: hashed, verified: false };
+    const hash = await bcrypt.hash(password, 12);
+    users[email] = { name, email, password: hash, verified: false };
     
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = { code: otp, expires: Date.now() + 600000 };
-
-    console.log(`📧 OTP ${otp} → ${email}`);
-
-    if (transporter) {
-      transporter.sendMail({
-        to: email,
-        subject: 'MyApp OTP',
-        html: `<h1>OTP: ${otp}</h1>`
-      }).catch(console.error);
-    }
-
-    res.json({ message: 'Registered! OTP sent.' });
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    otpStore[email] = { code: otp.toString(), expires: Date.now() + 600000 };
+    
+    console.log(`OTP ${otp} for ${email}`);
+    res.json({ message: `Registered! Test OTP: ${otp}` });
   } catch (e) {
-    res.status(500).json({ message: e.message });
+    res.status(500).json({ message: 'Error' });
   }
 });
 
@@ -75,24 +48,24 @@ app.post('/auth/verify-otp', async (req, res) => {
     const data = otpStore[email];
     
     if (!data || data.code !== otp || Date.now() > data.expires) {
-      return res.status(400).json({ message: 'Invalid/expired OTP' });
+      return res.status(400).json({ message: 'Invalid OTP' });
     }
 
     users[email].verified = true;
     const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '7d' });
     delete otpStore[email];
-
-    res.json({ 
+    
+    res.json({
       message: 'Verified!',
       token,
       user: { name: users[email].name, email }
     });
   } catch (e) {
-    res.status(500).json({ message: e.message });
+    res.status(500).json({ message: 'Error' });
   }
 });
 
-app.post('/auth/login', authLimiter, async (req, res) => {
+app.post('/auth/login', limiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = users[email];
@@ -103,13 +76,13 @@ app.post('/auth/login', authLimiter, async (req, res) => {
     
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(400).json({ message: 'Wrong credentials' });
+      return res.status(400).json({ message: 'Wrong password' });
     }
 
     const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { name: user.name, email } });
   } catch (e) {
-    res.status(500).json({ message: e.message });
+    res.status(500).json({ message: 'Error' });
   }
 });
 
@@ -120,22 +93,21 @@ app.post('/auth/resend-otp', async (req, res) => {
       return res.status(400).json({ message: 'User not found' });
     }
     
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[email] = { code: otp, expires: Date.now() + 600000 };
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    otpStore[email] = { code: otp.toString(), expires: Date.now() + 600000 };
     
-    console.log(`🔄 Resend OTP ${otp} → ${email}`);
-    res.json({ message: 'New OTP sent!' });
+    console.log(`Resend OTP ${otp} for ${email}`);
+    res.json({ message: `New OTP: ${otp}` });
   } catch (e) {
-    res.status(500).json({ message: e.message });
+    res.status(500).json({ message: 'Error' });
   }
 });
 
 app.post('/contact', (req, res) => {
-  console.log('Contact:', req.body);
-  res.json({ message: 'Sent!' });
+  res.json({ message: 'Contact sent!' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`🚀 Backend on port ${PORT}`);
+  console.log(`Backend running on port ${PORT}`);
 });
