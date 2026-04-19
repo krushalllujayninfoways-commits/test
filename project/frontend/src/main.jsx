@@ -6,6 +6,9 @@ import { AuthProvider } from "./context/AuthContext";
 import App from "./App";
 import "./index.css";
 
+// ✅ Import API globally if needed
+window.api = api;
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
