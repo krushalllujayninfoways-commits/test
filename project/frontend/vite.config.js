@@ -3,17 +3,25 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-
-  base: "./", // ✅ THIS IS THE MAIN FIX (VERY IMPORTANT)
-
+  
+  // ✅ Production base path
+  base: "/", 
+  
   server: {
     port: 5173,
+    host: true,
+    cors: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: "http://localhost:5000",  // Dev
         changeOrigin: true,
       },
     },
+  },
+
+  preview: {
+    port: process.env.PORT || 4173,
+    host: true,
   },
 
   build: {
